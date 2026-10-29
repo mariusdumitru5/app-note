@@ -38,6 +38,11 @@ spec:
                 secretKeyRef:
                   name: db-secret
                   key: POSTGRES_NAME
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: db-secret
+                  key: POSTGRES_USER
           envFrom:
             - configMapRef:
                 name: db-conf
