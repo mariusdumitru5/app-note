@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Registro · Archivio</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💾</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <main class="screen">
+
+    <nav class="window menu" aria-label="Pagine">
+      <a href="/index.html">INSERISCI</a>
+      <a href="/search.html" aria-current="page">ARCHIVIO</a>
+      <span class="ns">progetto-studenti-app</span>
+    </nav>
+
+    <section class="arena" aria-label="Stato del database">
+      <div class="window stat">
+        <div class="stat-name">DBINO <span class="lv">Lv<span id="rec-count">?</span></span></div>
+        <div class="hp-row">
+          <span class="hp-tag">DB</span>
+          <div class="hp"><div class="hp-fill" id="db-hp"></div></div>
+        </div>
+        <div class="stat-sub" id="db-label">Connessione…</div>
+      </div>
+      <div class="spot">
+        <div class="sprite" id="sprite" role="img" aria-label="Dbino, la mascotte del database"></div>
+        <div class="platform"></div>
+      </div>
+    </section>
+
+    <div class="window dialog" id="dialog" title="Clicca per completare il testo">
+      <p aria-hidden="true"></p>
+      <span class="sr-only" aria-live="polite"></span>
+      <span class="next" aria-hidden="true"></span>
+    </div>
+
+    <form class="window" id="search-form" role="search">
+      <h1 class="title">Cerca nell'archivio</h1>
+      <label for="q" class="sr-only">Testo da cercare in nome e note</label>
+      <div class="search-row">
+        <input type="search" id="q" name="q" placeholder="Cerca in nome e note" autocomplete="off">
+        <button type="submit" class="btn btn-blue">CERCA</button>
+        <button type="button" class="btn" id="show-all">Mostra tutti</button>
+      </div>
+    </form>
+
+    <section class="window" aria-labelledby="list-title">
+      <div class="list-head">
+        <h2 class="title" id="list-title">Record salvati</h2>
+        <span class="result-count" id="result-count"></span>
+      </div>
+      <ul class="list" id="results"></ul>
+    </section>
+
+  </main>
+
+  <template id="card-tpl">
+    <li class="card">
+      <span class="num"></span>
+      <div class="body">
+        <p class="name"></p>
+        <p class="note"></p>
+        <div class="meta"></div>
+      </div>
+      <button type="button" class="btn btn-red btn-del">ELIMINA</button>
+    </li>
+  </template>
+
+  <dialog class="confirm" id="confirm" aria-labelledby="confirm-text">
+    <form method="dialog" class="window">
+      <p id="confirm-text"></p>
+      <div class="choices">
+        <button value="no" class="btn" autofocus>NO</button>
+        <button value="yes" class="btn btn-red">SÌ, ELIMINA</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="/common.js"></script>
+  <script>
+    (function () {
+      const sprite = document.getElementById('sprite');
+      const list = document.getElementById('results');
+      const tpl = document.getElementById('card-tpl');
+      const q = document.getElementById('q');
+      const resultCount = document.getElementById('result-count');
+      const confirmDlg = document.getElementById('confirm');
+      const confirmText = document.getElementById('confirm-text');
+      let pending = null;
+      let debounce = null;
+
+      const num = (id) => 'N.' + String(id).padStart(3, '0');
+      const fmt = (iso) => new Date(iso).toLocaleString('it-IT', { dateStyle: 'short', timeStyle: 'short' });
+
+      // Evidenzia il testo cercato senza usare innerHTML (niente XSS)
+      function highlight(el, text, query) {
+        el.textContent = '';
+        if (!query) { el.textContent = text; return; }
+        const lower = text.toLowerCase();
+        const ql = query.toLowerCase();
+        let from = 0;
+        let idx;
+        while ((idx = lower.indexOf(ql, from)) !== -1) {
+          el.append(text.slice(from, idx));
+          const m = document.createElement('mark');
+          m.textContent = text.slice(idx, idx + query.length);
+          el.append(m);
+          from = idx + query.length;
+        }
+        el.append(text.slice(from));
+      }
+
+      function emptyState(message, withLink) {
+        const li = document.createElement('li');
+        li.className = 'empty-state';
+        li.textContent = message;
+        if (withLink) {
+          const a = document.createElement('a');
+          a.href = '/index.html';
+          a.textContent = 'Inserisci il primo record';
+          li.append(document.createElement('br'), a);
+        }
+        list.append(li);
+      }
+
+      function render(rows, query) {
+        list.replaceChildren();
+        resultCount.textContent = rows.length === 1 ? '1 risultato' : `${rows.length} risultati`;
+        if (!rows.length) {
+          if (query) emptyState(`Nessun record contiene “${query}”. Prova con un'altra parola.`);
+          else emptyState("L'archivio è vuoto.", true);
+          return;
+        }
+        for (const r of rows) {
+          const li = tpl.content.firstElementChild.cloneNode(true);
+          li.querySelector('.num').textContent = num(r.id);
+          highlight(li.querySelector('.name'), r.nome, query);
+          const noteEl = li.querySelector('.note');
+          if (r.note) highlight(noteEl, r.note, query);
+          else { noteEl.textContent = 'Nessuna nota'; noteEl.classList.add('empty'); }
+          li.querySelector('.meta').textContent = 'Salvato il ' + fmt(r.creato_il);
+          const del = li.querySelector('.btn-del');
+          del.setAttribute('aria-label', `Elimina ${r.nome}`);
+          del.addEventListener('click', () => askDelete(r, li));
+          list.append(li);
+        }
+      }
+
+      async function load(announce) {
+        const query = q.value.trim();
+        list.setAttribute('aria-busy', 'true');
+        try {
+          const rows = await Game.api('/api/records?q=' + encodeURIComponent(query));
+          render(rows, query);
+          if (announce && query) {
+            Game.say(rows.length
+              ? `Ho trovato ${rows.length} record con “${query}”.`
+              : `Nessun record contiene “${query}”.`);
+          }
+        } catch (err) {
+          list.replaceChildren();
+          resultCount.textContent = '';
+          emptyState('Archivio non leggibile in questo momento.');
+          Game.say(`Lettura non riuscita: ${err.message}`);
+        } finally {
+          list.removeAttribute('aria-busy');
+        }
+      }
+
+      function askDelete(r, li) {
+        pending = { r, li };
+        confirmText.textContent = `Eliminare ${r.nome} (${num(r.id)})? Non si può annullare.`;
+        confirmDlg.returnValue = '';
+        confirmDlg.showModal();
+      }
+
+      confirmDlg.addEventListener('close', async () => {
+        const job = pending;
+        pending = null;
+        if (!job || confirmDlg.returnValue !== 'yes') return;
+        try {
+          await Game.api(`/api/records/${job.r.id}`, { method: 'DELETE' });
+          job.li.classList.add('fainting');
+          Game.play(sprite, 'hit');
+          Game.say(`${job.r.nome} è stato eliminato dall'archivio.`);
+          setTimeout(() => { load(false); Game.refreshStatus(); }, 520);
+        } catch (err) {
+          Game.say(`Eliminazione non riuscita: ${err.message}`);
+          load(false);
+        }
+      });
+
+      document.getElementById('search-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        clearTimeout(debounce);
+        load(true);
+      });
+      q.addEventListener('input', () => {
+        clearTimeout(debounce);
+        debounce = setTimeout(() => load(false), 300);
+      });
+      document.getElementById('show-all').addEventListener('click', () => {
+        q.value = '';
+        load(false);
+        q.focus();
+      });
+
+      Game.renderSprite(sprite, 'happy');
+      Game.say("Questo è l'archivio. Cerca un testo per filtrare i record, oppure premi ELIMINA per cancellarne uno.");
+      Game.startStatus({
+        onDown: () => Game.say('Il database è andato K.O.! Aspetta che OpenShift ricrei il pod…'),
+        onUp: () => {
+          Game.say('Il database è tornato! Se i record sono ancora qui, la PVC ha fatto il suo lavoro.');
+          load(false);
+        },
+      });
+      load(false);
+    })();
+  </script>
+</body>
+</html>

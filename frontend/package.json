@@ -1,0 +1,17 @@
+{
+  "name": "frontend-registro",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Web app a 2 pagine (inserimento + gestione) collegata a PostgreSQL - Studente B",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "pg": "^8.13.1"
+  }
+}

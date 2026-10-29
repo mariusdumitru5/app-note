@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Registro · Nuovo record</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💾</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <main class="screen">
+
+    <nav class="window menu" aria-label="Pagine">
+      <a href="/index.html" aria-current="page">INSERISCI</a>
+      <a href="/search.html">ARCHIVIO</a>
+      <span class="ns">progetto-studenti-app</span>
+    </nav>
+
+    <section class="arena" aria-label="Stato del database">
+      <div class="window stat">
+        <div class="stat-name">DBINO <span class="lv">Lv<span id="rec-count">?</span></span></div>
+        <div class="hp-row">
+          <span class="hp-tag">DB</span>
+          <div class="hp"><div class="hp-fill" id="db-hp"></div></div>
+        </div>
+        <div class="stat-sub" id="db-label">Connessione…</div>
+      </div>
+      <div class="spot">
+        <div class="sprite" id="sprite" role="img" aria-label="Dbino, la mascotte del database"></div>
+        <div class="platform"></div>
+      </div>
+    </section>
+
+    <div class="window dialog" id="dialog" title="Clicca per completare il testo">
+      <p aria-hidden="true"></p>
+      <span class="sr-only" aria-live="polite"></span>
+      <span class="next" aria-hidden="true"></span>
+    </div>
+
+    <form class="window" id="insert-form" novalidate>
+      <h1 class="title">Nuovo record</h1>
+      <p class="hint">Il nome è obbligatorio, le note no.</p>
+
+      <label for="nome">Nome</label>
+      <input type="text" id="nome" name="nome" maxlength="100" autocomplete="off" required>
+
+      <label for="note">Note</label>
+      <textarea id="note" name="note" maxlength="1000" rows="4"></textarea>
+      <div class="count" id="note-count">0 / 1000</div>
+
+      <div class="actions">
+        <button type="submit" class="btn btn-red" id="save-btn">SALVA</button>
+        <a class="btn" href="/search.html">Vai all'archivio</a>
+      </div>
+    </form>
+
+  </main>
+
+  <script src="/common.js"></script>
+  <script>
+    (function () {
+      const form = document.getElementById('insert-form');
+      const nome = document.getElementById('nome');
+      const note = document.getElementById('note');
+      const noteCount = document.getElementById('note-count');
+      const btn = document.getElementById('save-btn');
+      const sprite = document.getElementById('sprite');
+
+      Game.renderSprite(sprite, 'happy');
+      Game.say('Ciao! Sono DBINO e custodisco il database. Scrivi un nome e qualche nota, poi premi SALVA.');
+      Game.startStatus({
+        onDown: () => Game.say('Il database è andato K.O.! OpenShift sta ricreando il pod: aspetta qualche secondo.'),
+        onUp: () => Game.say('Il database si è ripreso! Puoi tornare a salvare.'),
+      });
+
+      nome.addEventListener('input', () => nome.classList.remove('invalid'));
+      note.addEventListener('input', () => { noteCount.textContent = `${note.value.length} / 1000`; });
+
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const n = nome.value.trim();
+        const t = note.value.trim();
+
+        if (!n) {
+          nome.classList.add('invalid');
+          nome.focus();
+          Game.play(sprite, 'hit');
+          Game.say('Manca il nome! Scrivilo nel primo campo e premi di nuovo SALVA.');
+          return;
+        }
+
+        btn.disabled = true;
+        btn.textContent = 'SALVO…';
+        try {
+          const rec = await Game.api('/api/records', {
+            method: 'POST',
+            body: JSON.stringify({ nome: n, note: t }),
+          });
+          form.reset();
+          noteCount.textContent = '0 / 1000';
+          Game.play(sprite, 'cheer');
+          Game.say(`Fatto! ${rec.nome} è stato salvato nell'archivio come N.${String(rec.id).padStart(3, '0')}.`);
+          Game.refreshStatus();
+          nome.focus();
+        } catch (err) {
+          Game.play(sprite, 'hit');
+          Game.say(`Salvataggio non riuscito: ${err.message}`);
+        } finally {
+          btn.disabled = false;
+          btn.textContent = 'SALVA';
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
