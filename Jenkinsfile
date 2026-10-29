@@ -17,7 +17,8 @@ pipeline {
             steps {
                 // Legge il token salvato nelle credenziali usando l'ID 'openshift-sa-token'
                 withCredentials([
-                    string(credentialsId: 'openshift-sa-token', variable: 'OC_TOKEN')
+                    string(credentialsId: 'openshift-sa-token', variable: 'OC_TOKEN'),
+                    file(credentialsId: 'postgres-db-secret', variable: 'DB_PASSWORD')
                     ]) {
                     sh '''
                     # Login al cluster
@@ -26,8 +27,14 @@ pipeline {
                     # Selezione del namespace
                     oc project ${PROJECT_NAME}
 
+                     # Applica il secret di redis
+                    oc apply -f "$DB_PASSWORD"
+
                     # Applica il pvc per il database
                     oc apply -f openshift/00-db-pvc.yaml
+                    oc apply -f openshift/01-db-statefulset.yaml
+                    oc apply -f openshift/02-db-service.yaml
+                    oc apply -f openshift/03-db-configmap.yaml
 
                     # Verifica dei Pods attualmente attivi nel namespace
                     echo "--- Lista Pods attivi ---"
