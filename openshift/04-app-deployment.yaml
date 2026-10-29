@@ -23,11 +23,11 @@ spec:
             - containerPort: 8080
               protocol: TCP
           env:
-            - name: POSTGRES_USER
+            - name: POSTGRES_HOST
               valueFrom:
                 secretKeyRef:
                   name: db-secret     
-                  key: POSTGRES_USER
+                  key: POSTGRES_HOST
             - name: POSTGRES_PASSWORD
               valueFrom:
                 secretKeyRef:
