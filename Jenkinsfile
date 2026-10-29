@@ -4,6 +4,8 @@ pipeline {
     environment {
         CLUSTER_URL = 'https://api.openshift-ai-lab01.ocp-ai.corp.sourcesense.com:6443'
         PROJECT_NAME = 'progetto-studenti-app'
+        APP_NAME     = 'frontend-image'
+        APP_DIR      = 'frontend'
     }
 
     triggers {
@@ -24,14 +26,45 @@ pipeline {
                     # Selezione del namespace
                     oc project ${PROJECT_NAME}
 
-                    # Applica il secret di redis
-                    # oc apply -f openshift/00-db-pvc.yaml
+                    # Applica il pvc per il database
+                    oc apply -f openshift/00-db-pvc.yaml
 
                     # Verifica dei Pods attualmente attivi nel namespace
                     echo "--- Lista Pods attivi ---"
                     oc get pods
                     '''
                 }
+            }
+        }
+
+        stage('Frontend: crea BuildConfig') {
+            steps {
+                sh '''
+                if oc get bc/"$APP_NAME" >/dev/null 2>&1; then
+                    echo "BuildConfig $APP_NAME già presente, la riuso"
+                else
+                    oc new-build --name="$APP_NAME" --binary --strategy=docker
+                fi
+                '''
+            }
+        }
+
+        stage('Frontend: build e push immagine') {
+            steps {
+                sh '''
+                oc start-build "$APP_NAME" --from-dir="$APP_DIR" --follow --wait
+                oc tag "$APP_NAME:latest" "$APP_NAME:build-$BUILD_NUMBER"
+                '''
+            }
+        }
+
+        stage('Verifica') {
+            steps {
+                sh '''
+                echo "--- Stato del progetto ---"
+                oc get pods,svc,pvc,route
+                oc get is "$APP_NAME"
+                '''
             }
         }
     }
