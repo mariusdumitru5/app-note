@@ -10,12 +10,33 @@ const { Pool } = require('pg');
 
 const PORT = parseInt(process.env.PORT || '8080', 10);
 
+// Restituisce il valore della prima variabile d'ambiente presente (e non vuota).
+// Così l'app accetta sia i nomi DB_* sia quelli usati dalle immagini PostgreSQL:
+//   POSTGRES_*   -> immagine ufficiale postgres
+//   POSTGRESQL_* -> immagine Red Hat
+function pick(...names) {
+  for (const name of names) {
+    const value = process.env[name];
+    if (value !== undefined && value !== '') return value;
+  }
+  return undefined;
+}
+
+const dbConfig = {
+  host: pick('DB_HOST', 'POSTGRES_HOST', 'POSTGRESQL_HOST') || 'db-service',
+  port: parseInt(pick('DB_PORT', 'POSTGRES_PORT', 'POSTGRESQL_PORT') || '5432', 10),
+  user: pick('DB_USER', 'POSTGRES_USER', 'POSTGRESQL_USER'),
+  password: pick('DB_PASSWORD', 'POSTGRES_PASSWORD', 'POSTGRESQL_PASSWORD'),
+  database: pick('DB_NAME', 'POSTGRES_DB', 'POSTGRESQL_DATABASE'),
+};
+
+// Nei log si vede subito a cosa prova a collegarsi (la password non viene mai stampata)
+console.log('[db] configurazione: host=%s port=%d database=%s user=%s password=%s',
+  dbConfig.host, dbConfig.port, dbConfig.database, dbConfig.user,
+  dbConfig.password ? '(impostata)' : '(MANCANTE)');
+
 const pool = new Pool({
-  host: process.env.DB_HOST || 'db-service',
-  port: parseInt(process.env.DB_PORT || '5432', 10),
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
+  ...dbConfig,
   max: 10,
   connectionTimeoutMillis: 5000,
   idleTimeoutMillis: 30000,
