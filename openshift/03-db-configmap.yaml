@@ -3,5 +3,5 @@ kind: ConfigMap
 metadata:
   name: db-conf
 data:
-  DB_HOST: postgres-service
-  DB_PORT: "5432"
+  POSTGRES_HOST: postgres-service
+  POSTGRES_PORT: "5432"
