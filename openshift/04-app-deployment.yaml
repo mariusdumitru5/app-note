@@ -6,7 +6,6 @@ metadata:
     image.openshift.io/triggers: >-
         [{"from":{"kind":"ImageStreamTag","name":"frontend-image:latest"},
           "fieldPath":"spec.template.spec.containers[?(@.name==\"frontend\")].image"}]
-    reloader.stakater.com/auto: "true"
 spec:
   replicas: 1
   selector:
