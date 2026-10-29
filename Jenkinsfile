@@ -35,6 +35,9 @@ pipeline {
                     oc apply -f openshift/01-db-statefulset.yaml
                     oc apply -f openshift/02-db-service.yaml
                     oc apply -f openshift/03-db-configmap.yaml
+                    oc apply -f openshift/04-app-deployment.yaml
+                    oc apply -f openshift/05-app-service.yaml
+                    oc apply -f openshift/06-route-frontend.yaml
 
                     # Verifica dei Pods attualmente attivi nel namespace
                     echo "--- Lista Pods attivi ---"
